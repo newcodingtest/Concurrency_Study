@@ -242,13 +242,14 @@ _⚡️ Named Lock 사용시 주의사항_
 - 예제에서는 편의성을 위해서 Stock 엔티티를 사용하지만, 실무에서는 별도의 JDBC 를 사용해야 한다고 합니다.
 
 ```
-public interface LockRepository extends JpaRepository<Stock, Long> {
-
-    @Query(value = "select get_lock(:key, 3000)", nativeQuery = true)
+@Repository
+public interface LockRepository extends JpaRepository<Stock,Long> {
+    @Query(value = "select get_lock(:key,3000)", nativeQuery = true)
     void getLock(String key);
 
-    @Query(value = "select release_lock(:key, key)", nativeQuery = true)
+    @Query(value = "select release_lock(:key)", nativeQuery = true)
     void releaseLock(String key);
+
 }
 ```
 
@@ -261,23 +262,24 @@ public interface LockRepository extends JpaRepository<Stock, Long> {
 
 ```
 @Component
-@RequiredArgsConstructor
-public class NamedLockFacade {
+public class NamedLockStockFacade {
 
-    private final LockRepository lockRepository;
-    private final StockService stockService;
+    @Autowired
+    private LockRepository lockRepository;
+    @Autowired
+    private StockService stockService;
 
-    //부모의 트랜잭션과 별도로 실행되어야 함
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void decrease(final Long id, final Long quantity) {
-        try {
-            lockRepository.getLock(id.toString());
-            stockService.decrease(id, quantity);
-        }finally {
-            //락의 해제
-            lockRepository.releaseLock(id.toString());
+    @Transactional
+    public void decrease(Long id, Long quantity)  {
+            try{
+                lockRepository.getLock(id.toString());
+                stockService.decreaseWithNamedLock(id,quantity);
+            }finally {
+                lockRepository.releaseLock(id.toString());
+            }
         }
-    }
+
+
 }
 ```
 
@@ -294,65 +296,68 @@ spring:
       ddl-auto: create
     show-sql: true
   datasource:
-    driver-class-name: org.h2.Driver
-    url:  jdbc:h2:tcp://localhost/~/test
-    username: sa
-    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/stock_example
+    username: root
+    password: root
     hikari:
       maximum-pool-size: 40
+logging:
+  level:
+    org:
+      hibernate:
+        SQL: DEBUG
+        type:
+          descriptor:
+            sql:
+              BasicBinder: TRACE
 ```
 
 🖥 **NamedFacadeTest**
 
 ```
 @SpringBootTest
-class NamedLockFacadeTest {
-
-    @Autowired
-    private NamedLockFacade stockFacade;
-
+public class NamedLockStockFacadeTest {
     @Autowired
     private StockRepository stockRepository;
-
+    @Autowired
+    private NamedLockStockFacade namedLockStockFacade;
     @BeforeEach
-    public void before() {
+    public void before(){
         Stock stock = new Stock(1L, 100L);
+
         stockRepository.saveAndFlush(stock);
     }
 
     @AfterEach
-    public void after() {
+    public void after(){
         stockRepository.deleteAll();
     }
 
-
     @Test
-    @DisplayName("Pessimistic LOCK 동시에_100개의_요청")
-    public void Pessimistic_requests_100_AtTheSameTime() throws InterruptedException {
-        int threadCount = 100;
-        //멀티스레드 이용 ExecutorService : 비동기를 단순하게 처리할 수 있또록 해주는 java api
-        ExecutorService executorService = Executors.newFixedThreadPool(32);
+    public void 네임드락_을_이용한_동시에_100개의_요청() throws InterruptedException {
+        int threadCnt = 100;
 
-        //다른 스레드에서 수행이 완료될 때 까지 대기할 수 있도록 도와주는 API - 요청이 끝날때 까지 기다림
-        CountDownLatch latch = new CountDownLatch(threadCount);
+        ExecutorService executorService = Executors.newFixedThreadPool(8);
+        CountDownLatch latch = new CountDownLatch(threadCnt);
 
-        for (int i = 0; i < threadCount; i++) {
+
+        for (int i=0; i< threadCnt; i++){
             executorService.submit(() -> {
-                    try {
-                        stockFacade.decrease(1L, 1L);
-                    } finally {
-                        latch.countDown();
-                    }
+                try{
+                    namedLockStockFacade.decrease(1l,1l);
+                }finally {
+                    latch.countDown();
                 }
-            );
-        }
 
+            });
+        }
         latch.await();
 
         Stock stock = stockRepository.findById(1L).orElseThrow();
 
-        //100 - (1*100) = 0
-        assertThat(stock.getQuantity()).isEqualTo(0L);
+        assertEquals(0L,stock.getQuantity());
+
     }
 }
 ```
