@@ -15,8 +15,8 @@ public class Stock {
 
     private Long quantity;
 
-    @Version
-    private Long version;
+   // @Version//Optimistic Lock  일때만 필요
+    //private Long version;
 
     public Stock(){
         
