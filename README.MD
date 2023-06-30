@@ -373,5 +373,145 @@ public class NamedLockStockFacadeTest {
 - 하지만., Naemd Lock 은 트랜잭션 종료 시에, 락 해제와 세션관리를 잘 해주어야하므로 주의해서 사용주어야 합니다.
 - 또 실제 사용할 때는 구현방법이, 복잡할 수 있습니다.
 
+<br>
+<br>
+<br>
 
-출처: https://thalals.tistory.com/370
+# Redis 를 이용한 동시성 해결
+
+
+
+### 1. Lettuce 사용
+
+레디스 cli 시작
+
+```
+docker exec -it myredis redis-cli
+```
+
+setnx 를 통한 동시성 test
+
+```
+$ setnx 1 lock    -- lock 얻는다
+(integer) 1       -- 성공
+$ setnx 1 lock    -- lock 얻는다
+(integer) 0       -- 실패
+```
+
+
+
+#### 장점
+
+구현이 간편
+
+spring의 기본 제공 라이브러리
+
+#### 단점
+
+spin Lock 방법이므로  redis 에 무리를 줄수있음(락 획득까지 무한으로 획득 시도를 하기 때문)
+
+재시도 로직을 작성해야함
+
+
+
+### 2.redison 사용
+
+lock을 pub,sub 하는 구조
+
+레디스 cli 시작
+
+```
+docker exec -it myredis redis-cli
+```
+
+채널 구독
+
+```
+$ subscribe ch1
+```
+
+채널에 메시지(Lock) 발행
+
+```
+$ publish ch1 hello
+```
+
+
+
+#### 장점
+
+pub/sub 기반으로
+
+lettuce 보다 부하가 적음 또한 락 재시도를 대게 제한을 걸기에 부하가 적음
+
+재시도 로직을 기본으로 제공
+
+#### 단점
+
+spring의 기본 제공 라이브러리가 아님, 별도의 라이브러리임
+
+
+
+
+
+
+
+
+
+#### 재시도가 필요하지 않은 lock의 경우 Lettuce 사용
+
+```
+ex)
+유저 1명당 로지텍의 A 상품을 1개밖에 구매할 수 없다고 가정해보겠습니다.
+
+이 상황에서 userid_로지텍A상품을 key 로 lock 을 잡은상태에서 동일한 요청이 들어온다면 락을 기다릴 필요가 없을겁니다.
+
+먼저 들어온 요청이 처리가 된다면 이후의 요청이 lock 을 잡더라도 할 일이 없기때문입니다.
+
+이러한 상황이 재시도가 필요가 없는 상황입니다.
+```
+
+#### 재시도가 필요한 lock의 경우 redisson사용
+
+
+
+### Mysql vs Redis
+
+- Mysql
+
+  - 별도의 비용없이 사용가능
+  - 어느정도 트래픽까지는 문제 없음
+  - Redis 보다는 성능이 떨어짐
+
+- Redis
+
+  - 별도의 구축비용과 인프라 관리비용 발생
+
+  - mysql 보다 성능 좋음(Redis는 인메모리 기반)
+
+    
+
+redis 추가 정보
+
+https://goodgid.github.io/Redis/
+
+
+
+
+
+<br>
+
+<br>
+
+<br>
+
+
+
+출처
+
+https://www.inflearn.com/course/lecture?courseSlug=%EB%8F%99%EC%8B%9C%EC%84%B1%EC%9D%B4%EC%8A%88-%EC%9E%AC%EA%B3%A0%EC%8B%9C%EC%8A%A4%ED%85%9C&unitId=114854&category=questionDetail&tab=community&q=682397
+
+
+
+
+
