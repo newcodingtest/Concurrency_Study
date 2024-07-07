@@ -235,7 +235,7 @@ Named Lock 점유 과정
 
 _⚡️ Named Lock 사용시 주의사항_
 
-- 예제에서는 동일한 DataSource 를 사용하지만, 실제 서비스에서는 커넥션풀이 부족해질 수 있기에 DataSoruce 를 분리하는 걸 추천한다고 합니다.
+- 예제에서는 동일한 DataSource 를 사용하지만, 실제 서비스에서는 커넥션풀이 부족해질 수 있기에 DataSoruce 를 분리하는 걸 추천한다.
 
 **🖥LockRepository** 
 
