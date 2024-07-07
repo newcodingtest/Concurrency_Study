@@ -257,7 +257,7 @@ public interface LockRepository extends JpaRepository<Stock,Long> {
 
 - StockService 는 부모의 트랜잭션과 별도로 실행되어야하기 때문에 propergation을 별도로 생성해줍니다
 - 부모의 트랜잭션과 동일한 범위로 묶인다면 Synchronized 와 같은 문제인 DataBase에 commit 되기전에 락이 풀리는 현상이 발생합니다.
-- 그렇기 때문에 별도의 트랜잭션으로 분리해서 DataBase에 정상적으로 Commit이 된 후에 락을 해제해 주려는 의도르 품고있다고합니다.
+- 그렇기 때문에 별도의 트랜잭션으로 분리해서 DataBase에 정상적으로 Commit이 된 후에 락을 해제해 주려는 의도.
 - 핵심은 Lock을 해제하기전에 DataBase에 Commit이 되도록 하는것..!!
 
 ```
